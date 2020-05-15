@@ -79,8 +79,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       style = "position:fixed;width:inherit;",
-      checkboxGroupInput("service", "Service:",
-                         choices = service_choices),
+      
       searchInput(
         inputId = "zipcode", 
         label = "Zipcode:", 
@@ -88,7 +87,10 @@ ui <- fluidPage(
         btnSearch = icon("search"), 
         btnReset = icon("remove"), 
         width = "100%"
-      )
+      ),
+      
+      checkboxGroupInput("service", "Service:",
+                         choices = service_choices)      
     ),
     mainPanel(
       leafletOutput("mymap"),
