@@ -7,7 +7,9 @@ library(shinythemes)
 #read and clean data
 df <- read.csv("https://github.com/vle28/busanalytics/blob/master/app_data.csv?raw=True", stringsAsFactors = F) %>% 
   #select essential columns to web app
-  select(1, 3:15) %>% 
+  select(1:17, 26, 27) %>% 
+  #don't include Informational Number because not a physical location
+  filter(Name != "Informational Number") %>% 
   
   #If no phone, replace with "No Phone Number"
   #If no website, replace with "No Website"
@@ -46,31 +48,69 @@ service_choices <- unique(c(df$Service.Type.1, df$Service.Type.2, df$Service.Typ
 #get rid of empty string in vector of choices
 service_choices <- service_choices[!is.na(service_choices)]
 
+#list of victim profile choices for checkbox
+profile_choices <- unique(df$Victim.Profile)
+#reorder choices
+profile_choices <- profile_choices[c(7, 3, 4, 10, 1, 9, 5, 8, 6, 2)]
+
+
 #Function for filtering input
-filter_table <- function(locations, services, zipcode) {
+filter_table <- function(locations, services, zipcode, profiles) {
   
   #if nothing is checked or specified map all services
-  if (length(services) == 0 & zipcode == "") {
+  #services - nothing, zip - nothing, profiles - nothing
+  if (length(services) == 0 & zipcode == "" & length(profiles) == 0) {
     filtered_df <- locations
   }
   
-  #if nothing is checked but zip code entered, display only that zip code
-  else if (length(services) == 0 & zipcode != "") {
-    filtered_df <- locations %>% 
-      filter(Zip.Code == zipcode)
-  }
-  
   #if no zip code but box checked, show all with said service
-  else if (length(services) != 0 & zipcode == "") {
+  #services - something, zip - nothing, profiles - nothing
+  else if (length(services) != 0 & zipcode == "" & length(profiles) == 0) {
     filtered_df <- locations %>% 
       filter(grepl(paste(services, collapse = "|"), Services))
   }
   
+  #if nothing is checked but zip code entered, display only that zip code
+  #services - nothing, zip: - something, profiles - nothing
+  else if (length(services) == 0 & zipcode != "" & length(profiles) == 0) {
+    filtered_df <- locations %>% 
+      filter(Zip.Code == zipcode)
+  }
+  
+  #services - nothing, zip: - nothing, profiles - something
+  else if (length(services) == 0 & zipcode == "" & length(profiles) != 0) {
+    filtered_df <- locations %>% 
+      filter(grepl(paste(profiles, collapse = "|"), Victim.Profile))
+  }
+  
+  #services - nothing, zip: - something, profiles - something
+  else if (length(services) == 0 & zipcode != "" & length(profiles) != 0) {
+    filtered_df <- locations %>% 
+      filter(Zip.Code == zipcode &
+               grepl(paste(profiles, collapse = "|"), Victim.Profile))
+  }
+  
+  #services - something, zip: - nothing, profiles - something
+  else if (length(services) != 0 & zipcode == "" & length(profiles) != 0) {
+    filtered_df <- locations %>% 
+      filter(grepl(paste(services, collapse = "|"), Services) &
+               grepl(paste(profiles, collapse = "|"), Victim.Profile))
+  }
+  
+  #services - something, zip: - something, profiles - nothing
+  else if (length(services) == 0 & zipcode == "" & length(profiles) != 0) {
+    filtered_df <- locations %>% 
+      filter(grepl(paste(services, collapse = "|"), Services) & 
+               Zip.Code == zipcode)
+  }
+  
   #else filter what is mapped by what is checked and has zip
+  #services - something, zip: - something, profiles - something
   else{
     filtered_df <- df %>%
       filter(grepl(paste(services, collapse = "|"), Services) & 
-               Zip.Code == zipcode)
+               Zip.Code == zipcode &
+               grepl(paste(profiles, collapse = "|"), Victim.Profile))
   }
   return(filtered_df)
 }
@@ -99,6 +139,9 @@ ui <- fluidPage(
       
       checkboxGroupInput("service", "Service:",
                          choices = service_choices),
+      
+      checkboxGroupInput("profile", "Victim Profile:",
+                         choices = profile_choices)
     ),
     mainPanel(
       leafletOutput("mymap"),
@@ -113,7 +156,7 @@ server <- function(input, output, session) {
   output$mymap <- renderLeaflet({
     
     #the map
-    leaflet(data = filter_table(df, input$service, input$zipcode)) %>%
+    leaflet(data = filter_table(df, input$service, input$zipcode, input$profile)) %>%
       
       #map aesthetics
       addProviderTiles(providers$CartoDB.Positron) %>% 
@@ -126,11 +169,11 @@ server <- function(input, output, session) {
   })
   
   #output table 
-  output$table <- renderTable(filter_table(df, input$service, input$zipcode) %>% 
+  output$table <- renderTable(filter_table(df, input$service, input$zipcode, input$profile) %>% 
                                 
                                 #only display essentials-can be changed easily 
-                                select(Name, Services, Website, Phone, Zip.Code)
-    )
+                                select(Name, Services, Website, Phone, Description)
+  )
 }
 
 shinyApp(ui, server)
