@@ -146,10 +146,10 @@ ui <- fluidPage(
                   multiple = T) 
       
       #checkboxGroupInput("profile", "Victim Profile:",
-                         #choices = profile_choices)
+      #choices = profile_choices)
     ),
     mainPanel(
-      leafletOutput("mymap"),
+      leafletOutput("mymap", width = "100%", height = 600),
       tableOutput("table"),
       p()
     )
@@ -157,6 +157,10 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  
+  output$leaf=renderUI({
+    leafletOutput('mymap', width = "100%", height = 600)
+  })
   
   output$mymap <- renderLeaflet({
     
